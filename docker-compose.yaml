@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     ports:
       - "3000:80"
-
+  
   backend:
     build:
       context: ./backend
@@ -16,18 +16,17 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-    depends_on:
-      - db
-    command: ./prestart.sh
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
 
   db:
     image: postgres:13
     container_name: postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: aymogul22
-      POSTGRES_DB: hng11_devops_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
