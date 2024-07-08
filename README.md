@@ -18,7 +18,97 @@ To get started with this template, please follow the instructions in the respect
 - [Frontend README](./frontend/README.md)
 - [Backend README](./backend/README.md)
 
-## steps to deply the app
+## Deployment of the app locally
+
+# Prerequisites
+    A virtual machine running Ubuntu
+    Basic Level Understanding of the Linux CLI
+## steps
+1. clone the repo
+```sh
+git clone https://github.com/Aymogul/React-FastAPI-and-PostgresSQL-with-Docker.git
+```
+2. configure the backend which is dependent on the postgre db
+Install dependencies
+```sh
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+add poetry to PATH
+```sh
+# Example for Bash shell
+export PATH="$HOME/.poetry/bin:$PATH" >> ~/.bashrc
+source ~./bashrc
+poetry --version
+```
+
+```sh
+poetry install
+```
+# setup PostgreSQL
+```sh
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+```
+
+Switch to the PostgreSQL user and access the PostgreSQL
+```sh
+sudo -i -u postgres
+psql
+```
+Create a user app with password my_password:
+```sh
+CREATE USER app WITH PASSWORD 'my_password';
+```
+
+Create a database named app and grant all privileges to the app user:
+```sh
+CREATE DATABASE app;
+\c app
+GRANT ALL PRIVILEGES ON DATABASE app TO app;
+GRANT ALL PRIVILEGES ON SCHEMA public TO app;
+```
+Set database credentials
+Edit the PostgreSQL environment variables located in the .env file. 
+```sh
+POSTGRES_SERVER=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=app
+POSTGRES_USER=app
+POSTGRES_PASSWORD=my_password
+```
+Set up the database with the necessary tables:
+```sh
+poetry run bash ./prestart.sh
+```
+
+Run the backend server
+```sh
+poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+3.configure the frontend
+```sh
+cd devops-stage-2/frontend
+``` 
+```sh
+sudo apt update
+sudo apt install nodejs npm
+npm install
+```
+
+Run the fronted server and make it accessible from all network interfaces:
+```sh
+npm run dev -- --host
+```
+
+Accessing the application using curl:
+```sh
+curl localhost:5173
+```
+
+
+## steps to containerize the app
 1. Dockerize the frontend
 ```sh
 # Use an official Node.js runtime as a parent image
