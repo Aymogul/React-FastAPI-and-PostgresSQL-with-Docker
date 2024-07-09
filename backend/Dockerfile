@@ -36,7 +36,7 @@ RUN poetry install --no-root
 COPY . .
 
 # # Set PYTHONPATH to include the app directory
-# ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app
 
 # Expose the port that the app runs on
 EXPOSE 8000
