@@ -1,39 +1,36 @@
 version: '3.8'
+
 services:
   frontend:
-    build:
-      context: ./frontend
+    build: ./frontend
     container_name: frontend
     restart: unless-stopped
-    env_file:
-      - frontend/.env
-    environment:
-      VITE_API_URL: ${VITE_API_URL}
     ports:
       - "5173:5173"
     networks:
       - web
+
   backend:
-    build:
-      context: ./backend
+    build: ./backend
     container_name: backend
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
-    env_file:
-      - backend/.env
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    # volumes:
+      # - ./backend/prestart.sh:/prestart.sh  # Ensure correct path to prestart.sh
+    # command: /bin/bash /prestart.sh #&& uvicorn app.main:app --host 0.0.0.0 --port 8000
     networks:
       - web
+
   db:
     image: postgres:13
     container_name: postgres
     restart: unless-stopped
-    env_file:
-      - backend/.env
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -44,6 +41,12 @@ services:
       - "5432:5432"
     networks:
       - web
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   adminer:
     image: adminer
     container_name: adminer
@@ -52,18 +55,15 @@ services:
       - "8080:8080"
     networks:
       - web
+
   proxy:
     image: 'jc21/nginx-proxy-manager:latest'
-    container_name: proxy_manager
+    container_name: nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "81:81"
       - "443:443"
-    # volumes:
-    #   - ./data:/data
-    #   - ./proxy_manager/proxy_manager.conf:/data/proxy_manager/custom/http_top.conf
-    #   - ./letsencrypt:/etc/letsencrypt
     environment:
       DB_SQLITE_FILE: "/data/database.sqlite"
     volumes:
@@ -76,10 +76,12 @@ services:
       - db
     networks:
       - web
+
 volumes:
   postgres_data:
   data:
   letsencrypt:
+
 networks:
   web:
     external: false

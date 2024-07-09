@@ -111,8 +111,8 @@ curl localhost:5173
 ## steps to containerize the app
 1. Dockerize the frontend
 ```sh
-# Use an official Node.js runtime as a parent image
-FROM node:16-alpine
+# Use a more recent Node.js runtime as a parent image
+FROM node:18-alpine
 
 # Set the working directory in the container
 WORKDIR /app
@@ -126,17 +126,11 @@ RUN npm install
 # Copy the rest of the application code into the container
 COPY . .
 
-# Build the React app
-RUN npm run build
-
-# Install serve to serve the build directory
-RUN npm install -g serve
-
 # Expose the port that the app runs on
-EXPOSE 3000
+EXPOSE 5173
 
-# Command to serve the build directory
-CMD ["serve", "-s", "build"]
+# Command to run the development server with --host
+CMD ["npm", "run", "dev", "--", "--host"]
 ```
 
 
@@ -159,8 +153,21 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 # Add Poetry to PATH
 ENV PATH="/root/.local/bin:$PATH"
 
-# Copy the pyproject.toml and poetry.lock files
+# # Copy the pyproject.toml and poetry.lock files
+# COPY pyproject.toml poetry.lock ./
+
+# Set environment variables for Poetry
+ENV POETRY_HOME="/opt/poetry" \
+    PYSETUP_PATH="/app" \
+    PIP_NO_CACHE_DIR=off \
+    POETRY_VIRTUALENVS_PATH="/app/.venv"
+
+# Copy only the dependencies definition files to leverage caching
 COPY pyproject.toml poetry.lock ./
+
+# Disable Poetry's virtual environment creation
+RUN poetry config virtualenvs.create false
+
 
 # Install dependencies
 RUN poetry install --no-root
@@ -168,11 +175,14 @@ RUN poetry install --no-root
 # Copy the rest of the application code into the container
 COPY . .
 
+# # Set PYTHONPATH to include the app directory
+# ENV PYTHONPATH=/app
+
 # Expose the port that the app runs on
 EXPOSE 8000
 
 # Command to run the backend server
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 ```
 
 
@@ -183,22 +193,30 @@ version: '3.8'
 
 services:
   frontend:
-    build:
-      context: ./frontend
+    build: ./frontend
     container_name: frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
-  
+      - "5173:5173"
+    networks:
+      - web
+
   backend:
-    build:
-      context: ./backend
+    build: ./backend
     container_name: backend
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    # volumes:
+      # - ./backend/prestart.sh:/prestart.sh  # Ensure correct path to prestart.sh
+    # command: /bin/bash /prestart.sh #&& uvicorn app.main:app --host 0.0.0.0 --port 8000
+    networks:
+      - web
 
   db:
     image: postgres:13
@@ -212,6 +230,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    networks:
+      - web
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   adminer:
     image: adminer
@@ -219,21 +244,38 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    networks:
+      - web
 
   proxy:
     image: 'jc21/nginx-proxy-manager:latest'
-    container_name: proxy_manager
+    container_name: nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "81:81"
       - "443:443"
+    environment:
+      DB_SQLITE_FILE: "/data/database.sqlite"
     volumes:
       - ./data:/data
       - ./letsencrypt:/etc/letsencrypt
+    depends_on:
+      - frontend
+      - backend
+      - adminer
+      - db
+    networks:
+      - web
 
 volumes:
   postgres_data:
+  data:
+  letsencrypt:
+
+networks:
+  web:
+    external: false
 ```
 4. start a EC2 server
 ![alt text](./screenshot/react-server.PNG)
