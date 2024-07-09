@@ -280,6 +280,14 @@ networks:
 4. start a EC2 server
 ![alt text](./screenshot/react-server.PNG)
 
+# This will start the following services:
+
+Frontend on port 5173
+Backend on port 8000
+PostgreSQL on port 5432
+Adminer on port 8080
+Nginx Proxy Manager on ports 80, 81, and 443
+
 5. install git
 ```sh
 sudo apt update
